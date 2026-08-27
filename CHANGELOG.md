@@ -5,6 +5,53 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
 
+## [0.3.2] — 2026-08-27
+
+Kurulumdaki zararlı yazılım benzeri komut kalıplarını kaldıran sürüm.
+*Removes malware-like command patterns from the installer.*
+
+### Değişti / Changed
+
+**TR**
+- **Kendini silme kalıbı kaldırıldı.** Kaldırma işlemi
+  `cmd /c ping 127.0.0.1 -n 3 >nul & rmdir /s /q` komutunu bırakıyordu; bu,
+  zararlı yazılımların kendini silme tekniğinin ders kitabı örneğidir ve imza
+  veritabanlarında doğrudan kuralı vardır. Artık silinebilen her şey anında
+  siliniyor, kilitli kalan dosyalar için süreç kimliği izleniyor (uyku hilesi
+  yok).
+- **Kısayollar artık kabuk üzerinden oluşturulmuyor.** `WScript.Shell` +
+  `CreateShortcut`, kalıcılık tekniği olarak bilinir. Yerine doğrudan Windows
+  kabuk arayüzü (`IShellLinkW` + `IPersistFile`) kullanılıyor.
+- **Özel klasörler ve süreç araması da API'ye taşındı.**
+  `[Environment]::GetFolderPath` → `SHGetKnownFolderPath`,
+  `Get-Process` → `EnumProcesses`.
+- Sonuç: **kurulum artık hiç PowerShell çalıştırmıyor**; tek kalan kullanım,
+  kaldırma sonrası kilitli dosyaları temizleyen bekleme komutu.
+
+**EN**
+- **Self-delete pattern removed.** Uninstall used to leave behind
+  `cmd /c ping 127.0.0.1 -n 3 >nul & rmdir /s /q` — the textbook malware
+  self-deletion technique, with dedicated signature rules. Everything
+  deletable is now removed immediately and the process ID is watched for the
+  locked remainder (no sleep trick).
+- **Shortcuts are no longer created through a shell.** `WScript.Shell` +
+  `CreateShortcut` is a known persistence technique; replaced with the Windows
+  shell interface directly (`IShellLinkW` + `IPersistFile`).
+- **Known folders and process lookup moved to the API too:**
+  `SHGetKnownFolderPath` and `EnumProcesses`.
+- Result: **the installer no longer spawns PowerShell at all**; the only
+  remaining use is the wait-and-clean step after uninstall.
+
+### Eklendi / Added
+- `cf_win.py` — saf Win32/COM yardımcıları (ctypes ile, bağımlılıksız).
+  *Pure Win32/COM helpers via ctypes, no dependencies.*
+- `tools/selftest.py` — 66 denetimlik bütünlük testi: çizim katmanı, temizlik
+  hedeflerinin güvenlik değişmezleri, silme davranışı, ölçümler, Windows
+  arayüzü, kurulum/kaldırma turu ve altı arayüz sayfası.
+  *A 66-check integrity test covering every layer.*
+
+---
+
 ## [0.3.1] — 2026-08-27
 
 Virüs tarayıcı yanlış pozitiflerini gideren paketleme sürümü.

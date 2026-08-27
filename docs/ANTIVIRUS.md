@@ -17,15 +17,19 @@ görülen **yanlış pozitiflerdir**.
 
 Bir tarayıcı bir dosyayı üç şeye bakarak değerlendirir: nasıl paketlendiği,
 ne yaptığı ve kim tarafından imzalandığı. ClearFast üçünde de dezavantajlıydı;
-0.3.1 sürümünde ilk ikisi düzeltildi.
+0.3.1 ve 0.3.2 sürümlerinde ilk ikisi düzeltildi. Geriye yalnızca imzasızlık
+kaldı.
 
 | Tetikleyici | Neden şüpheli görünür | Durum |
 |---|---|---|
 | `--onefile` paketleme | Program her açılışta kendini `%TEMP%\_MEIxxxxx` altına açıp oradan çalışır. Paketleyici zararlıların birebir davranışıdır. | **Kaldırıldı** — 0.3.1'den itibaren tek klasör (onedir) dağıtımı |
 | Gömülü EXE taşıma | Kurulum programı, uygulama EXE'sini kendi içinde taşıyıp diske yazıyordu. "Dropper" teriminin tam tanımı budur. | **Kaldırıldı** — kurulum artık gömülü ikili taşımaz, bulunduğu klasörü kopyalar |
+| Kendini silme komutu | Kaldırma, `ping 127.0.0.1 -n 3 >nul & rmdir /s /q` bırakıyordu — zararlıların kendini silme tekniğinin ders kitabı örneği, imza kuralı vardır. | **Kaldırıldı (0.3.2)** — silinebilen her şey anında siliniyor, kalanı için süreç kimliği izleniyor |
+| Kabuk üzerinden kısayol | `WScript.Shell` + `CreateShortcut` kalıcılık tekniği olarak bilinir. | **Kaldırıldı (0.3.2)** — doğrudan `IShellLinkW` kullanılıyor |
+| Gizli PowerShell çağrıları | Kurulum, klasör yolu ve süreç araması için gizli pencereyle kabuk açıyordu. | **Kaldırıldı (0.3.2)** — `SHGetKnownFolderPath` ve `EnumProcesses` |
 | UPX sıkıştırma | Paketleme sezgiselini doğrudan tetikler. | Hiç kullanılmadı; `ClearFast.spec` içinde açıkça `upx=False` |
 | Kod imzası yok | İmzasız dosyaların itibar puanı sıfırdır, sezgisel skorları ağırlaşır. | Sürüyor — aşağıya bakın |
-| Davranış | Dosya siler, süreç listesi okur, PowerShell çalıştırır, kayıt defterine yazar. Hepsi programın işidir ama sezgisel tarayıcıya şüpheli görünür. | Değişemez — programın işlevi budur |
+| Davranış | Dosya siler, süreç listesi okur, donanım bilgisi için CIM sorgular, kayıt defterine yazar. Hepsi programın işidir ama sezgisel tarayıcıya şüpheli görünür. | Azaltıldı — kurulum artık kabuk çalıştırmıyor; kalan CIM sorguları programın işlevi |
 
 ### 0.3.1'de ne değişti?
 
@@ -51,7 +55,7 @@ var. Bu iki kalıp, uyarıların ana kaynağıydı.
 değerle karşılaştırın:
 
 ```powershell
-Get-FileHash .\ClearFast-0.3.1-Windows.zip -Algorithm SHA256
+Get-FileHash .\ClearFast-0.3.2-Windows.zip -Algorithm SHA256
 ```
 
 **2. Kendiniz derleyin.** Bize güvenmenize gerek yok:
@@ -60,6 +64,13 @@ Get-FileHash .\ClearFast-0.3.1-Windows.zip -Algorithm SHA256
 git clone https://github.com/bendiyardev/ClearFast
 cd ClearFast
 Build.bat
+```
+
+Ardından bütünlük testini çalıştırabilirsiniz — 66 denetim, silme
+davranışının güvenlik değişmezleri dahil:
+
+```bat
+py -3 tools\selftest.py
 ```
 
 Çıkan `dist\ClearFast\ClearFast.exe` ile yayınlananın davranışı aynıdır.
@@ -104,9 +115,9 @@ farkı yoktur.
 |---|---|---|
 | Dosya silme | `cf_core.delete_contents()` | Yalnızca onayladığınız önbellek klasörlerinin içeriği |
 | Süreç listesi okuma | `cf_metrics.ProcessMonitor` | Performans sayfasındaki "en çok yoran uygulamalar" |
-| PowerShell çalıştırma | `cf_core.run_ps`, `cf_metrics.run_ps` | Donanım bilgisi için CIM sorguları (`-NoProfile -NonInteractive`) |
+| PowerShell çalıştırma | `cf_core.run_ps`, `cf_metrics.run_ps` | Yalnızca donanım bilgisi için CIM sorguları (`-NoProfile -NonInteractive`). Kurulum hiç kullanmaz. |
 | Kayıt defterine yazma | `ClearFastSetup.write_registry()` | Yalnızca `HKCU\...\Uninstall\ClearFast` — kaldırma kaydı |
-| Kısayol oluşturma | `ClearFastSetup.make_shortcut()` | Başlat menüsü ve masaüstü kısayolu |
+| Kısayol oluşturma | `cf_win.create_shortcut()` | Başlat menüsü ve masaüstü kısayolu — kabuk arayüzü doğrudan çağrılır |
 | Klasör kopyalama | `ClearFastSetup.install()` | Kurulum: programın klasörünü hedefe kopyalar |
 
 Ağ bağlantısı **yoktur**: program hiçbir yere veri göndermez, güncelleme
@@ -127,15 +138,19 @@ with PyInstaller.
 ### Why does it happen?
 
 An engine judges a file by how it is packaged, what it does, and who signed
-it. ClearFast was at a disadvantage on all three; 0.3.1 fixes the first two.
+it. ClearFast was at a disadvantage on all three; 0.3.1 and 0.3.2 fixed the
+first two. Only the missing signature remains.
 
 | Trigger | Why it looks suspicious | Status |
 |---|---|---|
 | `--onefile` packaging | The program unpacks itself into `%TEMP%\_MEIxxxxx` on every launch and runs from there — exactly what packed malware does. | **Removed** — one-folder (onedir) distribution since 0.3.1 |
 | Embedded EXE payload | The installer carried the application EXE inside itself and wrote it to disk. That is the definition of a dropper. | **Removed** — setup carries no embedded binary; it copies its own folder |
+| Self-delete command | Uninstall left behind `ping 127.0.0.1 -n 3 >nul & rmdir /s /q` — the textbook malware self-deletion technique, with dedicated signature rules. | **Removed (0.3.2)** — everything deletable goes immediately, the process ID is watched for the rest |
+| Shortcuts through a shell | `WScript.Shell` + `CreateShortcut` is a known persistence technique. | **Removed (0.3.2)** — `IShellLinkW` is used directly |
+| Hidden PowerShell calls | Setup opened a hidden shell for folder paths and process lookup. | **Removed (0.3.2)** — `SHGetKnownFolderPath` and `EnumProcesses` |
 | UPX compression | Directly triggers packer heuristics. | Never used; explicitly `upx=False` in `ClearFast.spec` |
 | No code signature | Unsigned files have zero reputation, which raises heuristic scores. | Still true — see below |
-| Behaviour | Deletes files, reads the process list, runs PowerShell, writes to the registry. All of it is the program's job, but heuristics see red flags. | Cannot change — this is what the tool does |
+| Behaviour | Deletes files, reads the process list, queries CIM for hardware, writes to the registry. All of it is the program's job, but heuristics see red flags. | Reduced — setup no longer spawns a shell; the remaining CIM queries are the tool's function |
 
 ### What changed in 0.3.1
 
@@ -160,7 +175,7 @@ inside itself. Those two patterns were the main source of the warnings.
 **1. Verify the file** against `SHA256SUMS.txt` on the release page:
 
 ```powershell
-Get-FileHash .\ClearFast-0.3.1-Windows.zip -Algorithm SHA256
+Get-FileHash .\ClearFast-0.3.2-Windows.zip -Algorithm SHA256
 ```
 
 **2. Build it yourself** — you do not have to trust us:
@@ -169,6 +184,13 @@ Get-FileHash .\ClearFast-0.3.1-Windows.zip -Algorithm SHA256
 git clone https://github.com/bendiyardev/ClearFast
 cd ClearFast
 Build.bat
+```
+
+You can then run the integrity test — 66 checks, including the safety
+invariants of the deletion logic:
+
+```bat
+py -3 tools\selftest.py
 ```
 
 The resulting `dist\ClearFast\ClearFast.exe` behaves identically to the
@@ -212,9 +234,9 @@ Every behaviour that looks suspicious, mapped to the source:
 |---|---|---|
 | Deleting files | `cf_core.delete_contents()` | Only the contents of cache folders you confirmed |
 | Reading the process list | `cf_metrics.ProcessMonitor` | The "top consumers" list on the Performance page |
-| Running PowerShell | `cf_core.run_ps`, `cf_metrics.run_ps` | CIM queries for hardware information (`-NoProfile -NonInteractive`) |
+| Running PowerShell | `cf_core.run_ps`, `cf_metrics.run_ps` | CIM queries for hardware information only (`-NoProfile -NonInteractive`). Setup never uses it. |
 | Writing the registry | `ClearFastSetup.write_registry()` | Only `HKCU\...\Uninstall\ClearFast` — the uninstall entry |
-| Creating shortcuts | `ClearFastSetup.make_shortcut()` | Start Menu and Desktop shortcuts |
+| Creating shortcuts | `cf_win.create_shortcut()` | Start Menu and Desktop shortcuts — the shell interface is called directly |
 | Copying a folder | `ClearFastSetup.install()` | Installation: copies the program folder to the target |
 
 There is **no network access**: the program sends nothing anywhere, checks for

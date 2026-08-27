@@ -1,6 +1,6 @@
-# ClearFast 0.3.1 - SHA-256
+# ClearFast 0.3.2 - SHA-256
 #
 # Dogrulama / Verify (PowerShell):
-#   Get-FileHash .\ClearFast-0.3.1-Windows.zip -Algorithm SHA256
+#   Get-FileHash .\ClearFast-0.3.2-Windows.zip -Algorithm SHA256
 #
-213cd676e6ef384ad82e1b419238650b4662436479ffd620e77290891e391803  ClearFast-0.3.1-Windows.zip
+06d8bf53687dea5068b2d0b2d396e987b8c6ea3bc487ea4241400805b75f0c2e  ClearFast-0.3.2-Windows.zip

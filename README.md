@@ -13,7 +13,7 @@
 
 *Open-source cleanup, performance and hardware-health tool for Windows*
 
-![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-0.3.1-18181B?style=flat-square)
+![Sürüm](https://img.shields.io/badge/s%C3%BCr%C3%BCm-0.3.2-18181B?style=flat-square)
 ![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D4?style=flat-square)
 ![Python](https://img.shields.io/badge/python-3.10%2B-3776AB?style=flat-square)
 ![Bağımlılık](https://img.shields.io/badge/harici%20ba%C4%9F%C4%B1ml%C4%B1l%C4%B1k-yok-15803D?style=flat-square)
@@ -92,7 +92,7 @@ Hiçbir şey sorulmadan silinmez.
 
 ## 📦 İndir / Download
 
-**[⬇ ClearFast-0.3.1-Windows.zip](https://github.com/bendiyardev/ClearFast/releases/latest)**
+**[⬇ ClearFast-0.3.2-Windows.zip](https://github.com/bendiyardev/ClearFast/releases/latest)**
 · [Tüm sürümler / All releases](https://github.com/bendiyardev/ClearFast/releases)
 · [`SHA256SUMS.txt`](release/SHA256SUMS.txt)
 
@@ -316,6 +316,7 @@ py -3 -m PyInstaller --noconfirm --clean ClearFast.spec
 Yardımcı araçlar:
 
 ```bat
+py -3 tools\selftest.py            :: bütünlük testi (66 denetim)
 py -3 tools\_smoke.py 8            :: arayüzü açar, hata var mı diye bakar
 py -3 tools\make_screenshots.py    :: docs\img görüntülerini yeniler
 py -3 tools\make_release.py        :: masaüstüne dağıtım ZIP'i hazırlar
@@ -331,6 +332,7 @@ ClearFast/
 ├── cf_metrics.py             ▸ İşlemci / süreç / GPU / RAM / disk ölçümleri
 ├── cf_ui.py                  ▸ Tasarım sistemi: renk tokenleri ve bileşenler
 ├── cf_raster.py              ▸ Kenar yumuşatmalı PNG ve ICO üretimi (saf stdlib)
+├── cf_win.py                 ▸ Saf Win32/COM: kısayol, klasör yolu, süreç arama
 ├── ClearFastSetup.py         ▸ Kurulum ve kaldırma programı
 │
 ├── ClearFast.bat             ▸ Kaynaktan çalıştırıcı
@@ -354,6 +356,7 @@ ClearFast/
     ├── make_icon.py          ▸ Uygulama simgesini üretir
     ├── make_release.py       ▸ Dağıtım ZIP'i hazırlar
     ├── make_screenshots.py   ▸ Belgeleme görüntülerini üretir
+    ├── selftest.py           ▸ 66 denetimlik bütünlük testi
     ├── _smoke.py             ▸ Arayüzü açıp hata denetimi yapar
     └── _shot.py              ▸ Pencere yakalama yardımcısı
 ```
@@ -643,6 +646,7 @@ py -3 -m PyInstaller --noconfirm --clean ClearFast.spec
 Helper tools:
 
 ```bat
+py -3 tools\selftest.py            :: integrity test (66 checks)
 py -3 tools\_smoke.py 8            :: opens the UI and checks for errors
 py -3 tools\make_screenshots.py    :: regenerates docs\img
 py -3 tools\make_release.py        :: builds the distribution ZIP on the Desktop
@@ -658,6 +662,7 @@ ClearFast/
 ├── cf_metrics.py             ▸ CPU / process / GPU / RAM / disk measurements
 ├── cf_ui.py                  ▸ Design system: colour tokens and components
 ├── cf_raster.py              ▸ Anti-aliased PNG and ICO generation (pure stdlib)
+├── cf_win.py                 ▸ Pure Win32/COM: shortcuts, folder paths, processes
 ├── ClearFastSetup.py         ▸ Installer and uninstaller
 │
 ├── ClearFast.bat             ▸ Run from source
@@ -681,6 +686,7 @@ ClearFast/
     ├── make_icon.py          ▸ Generates the application icon
     ├── make_release.py       ▸ Builds the distribution ZIP
     ├── make_screenshots.py   ▸ Generates documentation screenshots
+    ├── selftest.py           ▸ 66-check integrity test
     ├── _smoke.py             ▸ Opens the UI and checks for errors
     └── _shot.py              ▸ Window capture helper
 ```

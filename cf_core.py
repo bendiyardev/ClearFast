@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import Callable, Iterable
 
 APP_NAME = "ClearFast"
-APP_VERSION = "0.3.1"
+APP_VERSION = "0.3.2"
 APP_PUBLISHER = "ClearFast"
 
 CREATE_NO_WINDOW = 0x08000000 if os.name == "nt" else 0

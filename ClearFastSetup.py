@@ -25,10 +25,11 @@ import winreg
 from pathlib import Path
 
 import cf_ui as ui
+import cf_win
 from cf_ui import px
 
 APP_NAME = "ClearFast"
-APP_VERSION = "0.3.1"
+APP_VERSION = "0.3.2"
 APP_PUBLISHER = "ClearFast"
 EXE_NAME = "ClearFast.exe"
 REG_KEY = r"Software\Microsoft\Windows\CurrentVersion\Uninstall\ClearFast"
@@ -76,53 +77,25 @@ def default_install_dir() -> Path:
     return Path(base) / "Programs" / APP_NAME
 
 
-def run_ps(script: str, timeout: int = 20) -> str:
-    try:
-        result = subprocess.run(
-            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
-            capture_output=True, text=True, timeout=timeout,
-            creationflags=CREATE_NO_WINDOW, encoding="utf-8", errors="replace")
-        return result.stdout.strip()
-    except Exception:
-        return ""
-
-
 def shell_folders() -> dict[str, Path | None]:
     """Masaustu ve Baslat menusu yollari (OneDrive yonlendirmesini de dogru alir)."""
-    out = run_ps("[Environment]::GetFolderPath('Desktop'); "
-                 "[Environment]::GetFolderPath('Programs')")
-    lines = [line.strip() for line in out.splitlines() if line.strip()]
-    desktop = Path(lines[0]) if len(lines) > 0 else None
-    programs = Path(lines[1]) if len(lines) > 1 else None
+    desktop = cf_win.known_folder(cf_win.FOLDERID_Desktop)
+    programs = cf_win.known_folder(cf_win.FOLDERID_Programs)
     if desktop is None:
         candidate = Path.home() / "Desktop"
         desktop = candidate if candidate.exists() else None
     return {"desktop": desktop, "programs": programs}
 
 
-def ps_quote(value: str) -> str:
-    return "'" + str(value).replace("'", "''") + "'"
-
-
 def make_shortcut(link: Path, target: Path, description: str) -> bool:
-    link.parent.mkdir(parents=True, exist_ok=True)
-    script = (
-        f"$s = (New-Object -ComObject WScript.Shell).CreateShortcut({ps_quote(link)}); "
-        f"$s.TargetPath = {ps_quote(target)}; "
-        f"$s.WorkingDirectory = {ps_quote(target.parent)}; "
-        f"$s.IconLocation = {ps_quote(str(target) + ',0')}; "
-        f"$s.Description = {ps_quote(description)}; "
-        f"$s.Save()")
-    run_ps(script)
-    return link.exists()
+    """Kisayolu dogrudan kabuk arayuzuyle olusturur (harici surec yok)."""
+    return cf_win.create_shortcut(link, target, description=description,
+                                  working_dir=target.parent, icon=target)
 
 
 def app_is_running() -> bool:
     """Baska bir ClearFast penceresi acik mi? Kurulum kipinin kendisi sayilmaz."""
-    out = run_ps(f"@(Get-Process -Name '{Path(EXE_NAME).stem}' -ErrorAction "
-                 f"SilentlyContinue | Where-Object {{ $_.Id -ne {os.getpid()} }}).Count",
-                 timeout=12)
-    return out.strip().isdigit() and int(out.strip()) > 0
+    return bool(cf_win.running_pids(EXE_NAME, exclude_pid=os.getpid()))
 
 
 def human_bytes(value: int) -> str:
@@ -215,6 +188,40 @@ def install(install_dir: Path, desktop_shortcut: bool, menu_shortcut: bool, repo
     return target
 
 
+def remove_tree(folder: Path) -> list[Path]:
+    """Silinebilen her seyi hemen siler; kilitli kalanlarin listesini doner."""
+    remaining: list[Path] = []
+    for root, _dirs, files in os.walk(folder, topdown=False):
+        for name in files:
+            item = Path(root) / name
+            try:
+                item.unlink()
+            except OSError:
+                remaining.append(item)
+        try:
+            Path(root).rmdir()
+        except OSError:
+            pass
+    return remaining
+
+
+def schedule_removal(folder: Path) -> None:
+    """Kilitli dosyalari, bu surec kapandiktan hemen sonra siler.
+
+    Bilerek uyku/gecikme hilesi (ping, timeout) kullanilmaz: surec kimligi
+    izlenir. Bu hem daha dogru hem de zararli yazilim kaliplarina benzemez.
+    """
+    script = (f"Wait-Process -Id {os.getpid()} -ErrorAction SilentlyContinue; "
+              f"Remove-Item -LiteralPath '{str(folder).replace(chr(39), chr(39) * 2)}' "
+              f"-Recurse -Force -ErrorAction SilentlyContinue")
+    try:
+        subprocess.Popen(
+            ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", script],
+            creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW, close_fds=True)
+    except OSError:
+        pass
+
+
 def uninstall(install_dir: Path, report) -> None:
     report(0.15, "Uygulama durumu denetleniyor…")
     if app_is_running():
@@ -234,11 +241,14 @@ def uninstall(install_dir: Path, report) -> None:
     report(0.70, "Sistem kaydı siliniyor…")
     delete_registry()
 
-    report(0.90, "Dosyalar kaldırılıyor…")
-    # Kaldirici kendi klasorunun icinde oldugu icin silme islemi cikistan sonraya birakilir.
-    subprocess.Popen(
-        f'cmd /c ping 127.0.0.1 -n 3 >nul & rmdir /s /q "{install_dir}"',
-        creationflags=DETACHED_PROCESS | CREATE_NO_WINDOW, close_fds=True)
+    report(0.85, "Dosyalar siliniyor…")
+    remaining = remove_tree(install_dir)
+
+    if remaining:
+        # Calisan EXE ve yuklu DLL'ler kilitlidir; onlar surec kapandiktan
+        # sonra silinir. Bekleme icin PID izlenir (uyku hilesi kullanilmaz).
+        report(0.95, "Kalan dosyalar programın kapanmasıyla silinecek…")
+        schedule_removal(install_dir)
     report(1.0, "Tamamlandı")
 
 
