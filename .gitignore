@@ -1,0 +1,29 @@
+# Derleme ciktilari / Build output
+build/
+dist/
+*.spec.bak
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Kok dizine uretilen gecici dagitim paketi (masaustu ciktisi gibi)
+# Temporary distribution package produced at the repository root
+/ClearFast-*-Windows.zip
+
+# NOT: release/ klasoru bilerek surum kontrolundedir; dagitim ZIP'i ve
+# saglama toplamlari depodan dogrudan indirilebilsin diye tutulur.
+# NOTE: release/ is intentionally tracked so the distribution ZIP and its
+# checksums can be downloaded straight from the repository.

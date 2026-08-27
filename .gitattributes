@@ -1,0 +1,11 @@
+# Metin dosyalari depoda LF ile saklanir / text stored as LF in the repo
+* text=auto eol=lf
+
+# Windows toplu is dosyalari ve dagitilan metinler CRLF ister
+*.bat  text eol=crlf
+*.txt  text eol=crlf
+
+# Ikili dosyalar / binary
+*.exe  binary
+*.ico  binary
+*.png  binary
