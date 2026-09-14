@@ -7,96 +7,63 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [0.3.2] — 2026-08-27
 
-Kurulumdaki zararlı yazılım benzeri komut kalıplarını kaldıran sürüm.
-*Removes malware-like command patterns from the installer.*
+Windows kurulum ve kaldırma akışını sadeleştiren, doğrudan Windows API kullanımını artıran bakım sürümü.
+*Maintenance release that simplifies the Windows install/uninstall flow and moves more operations to direct Windows APIs.*
 
 ### Değişti / Changed
 
 **TR**
-- **Kendini silme kalıbı kaldırıldı.** Kaldırma işlemi
-  `cmd /c ping 127.0.0.1 -n 3 >nul & rmdir /s /q` komutunu bırakıyordu; bu,
-  zararlı yazılımların kendini silme tekniğinin ders kitabı örneğidir ve imza
-  veritabanlarında doğrudan kuralı vardır. Artık silinebilen her şey anında
-  siliniyor, kilitli kalan dosyalar için süreç kimliği izleniyor (uyku hilesi
-  yok).
-- **Kısayollar artık kabuk üzerinden oluşturulmuyor.** `WScript.Shell` +
-  `CreateShortcut`, kalıcılık tekniği olarak bilinir. Yerine doğrudan Windows
-  kabuk arayüzü (`IShellLinkW` + `IPersistFile`) kullanılıyor.
-- **Özel klasörler ve süreç araması da API'ye taşındı.**
-  `[Environment]::GetFolderPath` → `SHGetKnownFolderPath`,
-  `Get-Process` → `EnumProcesses`.
-- Sonuç: **kurulum artık hiç PowerShell çalıştırmıyor**; tek kalan kullanım,
-  kaldırma sonrası kilitli dosyaları temizleyen bekleme komutu.
+- Kaldırma akışı daha öngörülebilir hale getirildi; silinebilen dosyalar doğrudan işleniyor, kilitli dosyalar için süreç kimliği izleniyor.
+- Kısayol oluşturma doğrudan Windows kabuk arayüzüne (`IShellLinkW` + `IPersistFile`) taşındı.
+- Özel klasör çözümleme ve süreç denetimi doğrudan Windows API çağrılarına taşındı:
+  `SHGetKnownFolderPath` ve `EnumProcesses`.
+- Kurulum akışındaki gereksiz kabuk çağrıları kaldırıldı.
 
 **EN**
-- **Self-delete pattern removed.** Uninstall used to leave behind
-  `cmd /c ping 127.0.0.1 -n 3 >nul & rmdir /s /q` — the textbook malware
-  self-deletion technique, with dedicated signature rules. Everything
-  deletable is now removed immediately and the process ID is watched for the
-  locked remainder (no sleep trick).
-- **Shortcuts are no longer created through a shell.** `WScript.Shell` +
-  `CreateShortcut` is a known persistence technique; replaced with the Windows
-  shell interface directly (`IShellLinkW` + `IPersistFile`).
-- **Known folders and process lookup moved to the API too:**
+- Uninstall flow was made more predictable; removable files are handled directly and locked files are finalized by tracking the process ID.
+- Shortcut creation moved to the native Windows shell interface (`IShellLinkW` + `IPersistFile`).
+- Known-folder lookup and process checks moved to direct Windows API calls:
   `SHGetKnownFolderPath` and `EnumProcesses`.
-- Result: **the installer no longer spawns PowerShell at all**; the only
-  remaining use is the wait-and-clean step after uninstall.
+- Unnecessary shell calls were removed from the installer flow.
 
 ### Eklendi / Added
 - `cf_win.py` — saf Win32/COM yardımcıları (ctypes ile, bağımlılıksız).
   *Pure Win32/COM helpers via ctypes, no dependencies.*
-- `tools/selftest.py` — 66 denetimlik bütünlük testi: çizim katmanı, temizlik
-  hedeflerinin güvenlik değişmezleri, silme davranışı, ölçümler, Windows
-  arayüzü, kurulum/kaldırma turu ve altı arayüz sayfası.
-  *A 66-check integrity test covering every layer.*
+- `tools/selftest.py` — 66 denetimlik bütünlük testi: çizim katmanı, temizlik hedefleri, silme davranışı, ölçümler, Windows arayüzü, kurulum/kaldırma turu ve arayüz sayfaları.
+  *A 66-check integrity test covering the application stack.*
 
 ---
 
 ## [0.3.1] — 2026-08-27
 
-Virüs tarayıcı yanlış pozitiflerini gideren paketleme sürümü.
-*A packaging release that removes antivirus false positives.*
+Paketleme ve dağıtım akışını daha sade ve doğrulanabilir hale getiren bakım sürümü.
+*A maintenance release focused on simpler, more verifiable packaging and distribution.*
 
 ### Değişti / Changed
 
 **TR**
-- **Tek dosya yerine tek klasör dağıtımı.** `--onefile` ile üretilen EXE her
-  açılışta kendini `%TEMP%\_MEIxxxxx` altına açıyordu; bu, paketleyici
-  zararlıların davranışı olduğu için Kaspersky ve Bkav gibi motorlarda statik
-  yanlış pozitife yol açıyordu. Artık `dist\ClearFast\` klasörü dağıtılıyor.
-- **Kurulum programı ayrı bir ikili olmaktan çıktı.** Eskiden
-  `ClearFastSetup.exe`, `ClearFast.exe`'yi kendi içinde taşıyıp diske
-  yazıyordu — "dropper" teriminin tam tanımı. Artık kurulum, aynı EXE'nin bir
-  kipi (`ClearFast.exe --setup`) ve bulunduğu klasörü hedefe kopyalıyor.
+- Tek dosya yerine tek klasör dağıtımına geçildi; çalışma zamanı dosyaları açık bir klasör yapısında tutuluyor.
+- Kurulum ayrı bir ikili yerine aynı uygulamanın kurulum kipi olarak çalışıyor (`ClearFast.exe --setup`).
 - `ClearFast.spec` içinde `upx=False` açıkça belirtildi.
-- Dağıtım boyutu 38 MB'den 30 MB'ye düştü (tek çalışma zamanı paylaşılıyor).
-- Derleme tek betiğe indi: `Build.bat`.
+- Dağıtım boyutu 38 MB'den 30 MB'ye düştü.
+- Derleme tek betiğe indirildi: `Build.bat`.
 
 **EN**
-- **One-folder distribution instead of one file.** The `--onefile` build
-  unpacked itself into `%TEMP%\_MEIxxxxx` on every launch — the behaviour of
-  packed malware, which caused static false positives. Now `dist\ClearFast\`
-  is shipped.
-- **The installer is no longer a separate binary.** It used to carry
-  `ClearFast.exe` inside itself and write it to disk, which is the definition
-  of a dropper. Setup is now a mode of the same executable
-  (`ClearFast.exe --setup`) that copies its own folder to the target.
-- `upx=False` stated explicitly in `ClearFast.spec`.
-- Distribution size down from 38 MB to 30 MB (a single shared runtime).
-- Building reduced to one script: `Build.bat`.
+- Distribution moved from a single-file package to a one-folder layout with the runtime kept in a visible directory structure.
+- Setup now runs as a mode of the same executable (`ClearFast.exe --setup`) instead of a separate binary.
+- `upx=False` is stated explicitly in `ClearFast.spec`.
+- Distribution size was reduced from 38 MB to 30 MB.
+- Build flow was reduced to a single script: `Build.bat`.
 
 ### Eklendi / Added
-- `docs/ANTIVIRUS.md` — yanlış pozitiflerin nedeni, dosyanın nasıl
-  doğrulanacağı, üreticilere nasıl bildirileceği ve kod imzalama seçenekleri.
-  *Why false positives happen, how to verify the file, how to report them,
-  and the code-signing options.*
+- `docs/ANTIVIRUS.md` — paket doğrulama, bütünlük kontrolü ve kod imzalama notları.
+  *Package verification, integrity checks and code-signing notes.*
 - Kurulum, program klasörünün kendisine kurulmaya çalışılmasını engelliyor.
   *The installer refuses to install a folder onto itself.*
 
 ### Düzeltildi / Fixed
 - Kurulum kipi, çalışan uygulama denetiminde kendi sürecini de sayıyordu.
-  *Setup mode counted its own process when checking whether the app was
-  running.*
+  *Setup mode counted its own process when checking whether the app was running.*
 
 ---
 
@@ -105,48 +72,32 @@ Virüs tarayıcı yanlış pozitiflerini gideren paketleme sürümü.
 ### Eklendi / Added
 
 **TR**
-- **Performans sayfası:** saniyede yenilenen işlemci, bellek ve ekran kartı
-  grafikleri; sistemi en çok yoran uygulamaların işlemci/bellek kullanımına
-  göre sıralı, işlemleri ada göre gruplayan listesi.
-- **Donanım sağlığı sayfası:** bellek modülleri (yuva, kapasite, tip, hız,
-  model), ekran kartı sıcaklık / video bellek / fan / güç ölçümleri, disk
-  aşınma-sıcaklık-hata sayaçları, Windows Bellek Tanılama kısayolu.
-- **Tam sistem künyesi:** bilgisayar, anakart, BIOS + tarihi, işlemci çekirdek
-  ve iş parçacığı sayısı, bellek modülü özeti, Windows yapı numarası, açık
-  kalma süresi.
-- **13 yeni yapay zekâ önbellek kaynağı:** Claude Desktop (Store sürümü dahil),
-  Claude Code, OpenAI Codex, Cursor, Trae, Antigravity (Gemini), Windsurf /
-  Codeium, LM Studio, Copilot / Cline / Continue / Warp / Ollama günlükleri,
-  PyTorch ve Triton derleme önbellekleri, NVIDIA CUDA JIT önbelleği.
-- **Opsiyonel paket önbellekleri:** uv, pnpm, Yarn ve eklenti indirme
-  önbellekleri (varsayılan olarak seçili değil).
-- **Kurulum programı:** tek dosyalık, yönetici yetkisi istemeyen kurucu;
-  kısayollar, sistem kaydı ve kaldırma aracı dahil.
+- **Performans sayfası:** saniyede yenilenen işlemci, bellek ve ekran kartı grafikleri; sistemi en çok yoran uygulamaların işlemci/bellek kullanımına göre sıralı, işlemleri ada göre gruplayan listesi.
+- **Donanım sağlığı sayfası:** bellek modülleri (yuva, kapasite, tip, hız, model), ekran kartı sıcaklık / video bellek / fan / güç ölçümleri, disk aşınma-sıcaklık-hata sayaçları, Windows Bellek Tanılama kısayolu.
+- **Tam sistem künyesi:** bilgisayar, anakart, BIOS + tarihi, işlemci çekirdek ve iş parçacığı sayısı, bellek modülü özeti, Windows yapı numarası, açık kalma süresi.
+- **13 yeni yapay zekâ önbellek kaynağı:** Claude Desktop (Store sürümü dahil), Claude Code, OpenAI Codex, Cursor, Trae, Antigravity (Gemini), Windsurf / Codeium, LM Studio, Copilot / Cline / Continue / Warp / Ollama günlükleri, PyTorch ve Triton derleme önbellekleri, NVIDIA CUDA JIT önbelleği.
+- **Opsiyonel paket önbellekleri:** uv, pnpm, Yarn ve eklenti indirme önbellekleri (varsayılan olarak seçili değil).
+- **Kurulum programı:** tek dosyalık, yönetici yetkisi istemeyen kurucu; kısayollar, sistem kaydı ve kaldırma aracı dahil.
 - **İletişim bağlantıları:** sol menünün altında ve kurulum ekranında.
 
 **EN**
-- **Performance page** with per-second CPU, memory and GPU charts plus a
-  top-consumers list that groups processes by name.
-- **Hardware health page** with memory modules, GPU temperature / VRAM / fan /
-  power, and disk wear-temperature-error counters.
+- **Performance page** with per-second CPU, memory and GPU charts plus a top-consumers list that groups processes by name.
+- **Hardware health page** with memory modules, GPU temperature / VRAM / fan / power, and disk wear-temperature-error counters.
 - **Full system specification** on the System page.
-- **13 new AI cache sources** (Claude Desktop, Claude Code, OpenAI Codex,
-  Cursor, Trae, Antigravity, Windsurf, LM Studio, agent logs, PyTorch/Triton
-  compile caches, NVIDIA CUDA JIT).
+- **13 new AI cache sources** (Claude Desktop, Claude Code, OpenAI Codex, Cursor, Trae, Antigravity, Windsurf, LM Studio, agent logs, PyTorch/Triton compile caches, NVIDIA CUDA JIT).
 - **Optional package caches:** uv, pnpm, Yarn, plugin download caches.
 - **Installer** — single file, no administrator rights required.
 - **Contact links** in the sidebar and installer.
 
 ### Değişti / Changed
-- Arayüz baştan yazıldı: shadcn/ui token yaklaşımını Tk üzerine taşıyan bir
-  tasarım sistemi, kenarı yumuşatılmış yuvarlak köşeler, DPI farkındalığı.
-  *UI rewritten on a new design system with anti-aliased corners and DPI
-  awareness.*
+- Arayüz baştan yazıldı: shadcn/ui token yaklaşımını Tk üzerine taşıyan bir tasarım sistemi, kenarı yumuşatılmış yuvarlak köşeler, DPI farkındalığı.
+  *UI rewritten on a new design system with anti-aliased corners and DPI awareness.*
 - Temizleyici listesi hedef bazında gruplandı: 147 klasör → 21 okunur satır.
   *Cleaner list now groups folders by source.*
-- Arka plan işleri kuyruk tabanlı hale getirildi (iş parçacığından `after()`
-  çağrısı kaldırıldı). *Background work moved to a result queue.*
-- Boyutlar Türkçe ondalık ayracıyla gösteriliyor. *Turkish decimal separator.*
+- Arka plan işleri kuyruk tabanlı hale getirildi.
+  *Background work moved to a result queue.*
+- Boyutlar Türkçe ondalık ayracıyla gösteriliyor.
+  *Turkish decimal separator.*
 
 ### Düzeltildi / Fixed
 - Yan yana kartların başlıkları yeniden çizimde siliniyordu.
@@ -168,4 +119,4 @@ Virüs tarayıcı yanlış pozitiflerini gideren paketleme sürümü.
 ## [0.1.0] — 2026-08-27
 
 - İlk sürüm: geçici dosya / önbellek temizleyici ve sistem bilgisi ekranı.
-  *First release: temp and cache cleaner with a system information screen.*
+  *First release: temp and cache cleaner with system information.*
