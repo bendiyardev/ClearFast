@@ -1,4 +1,4 @@
-# Virüs tarayıcı uyarıları · Antivirus warnings
+# Güvenlik ve doğrulama notları · Security & verification notes
 
 [Türkçe](#türkçe) · [English](#english)
 
@@ -6,239 +6,112 @@
 
 ## Türkçe
 
-### Kısa cevap
+ClearFast açık kaynaklıdır; yayınlanan paketin kaynak kodu bu depoda bulunur ve `Build.bat` ile yerel olarak yeniden derlenebilir.
 
-ClearFast'te zararlı kod **yoktur**. Kaynak kodun tamamı bu depodadır ve
-derleme çıktısını kendiniz üretebilirsiniz. Bazı virüs tarayıcıların verdiği
-uyarılar, Python ile yazılmış ve PyInstaller ile paketlenmiş programlarda
-görülen **yanlış pozitiflerdir**.
+### Paketleme yaklaşımı
 
-### Neden oluyor?
+0.3.1 ve 0.3.2 sürümlerinde Windows dağıtım ve kurulum akışı sadeleştirildi:
 
-Bir tarayıcı bir dosyayı üç şeye bakarak değerlendirir: nasıl paketlendiği,
-ne yaptığı ve kim tarafından imzalandığı. ClearFast üçünde de dezavantajlıydı;
-0.3.1 ve 0.3.2 sürümlerinde ilk ikisi düzeltildi. Geriye yalnızca imzasızlık
-kaldı.
+- Tek dosya paket yerine tek klasör dağıtımı kullanılır.
+- Kurulum ayrı bir ikili yerine `ClearFast.exe --setup` kipi üzerinden çalışır.
+- Kısayollar doğrudan Windows kabuk arayüzüyle oluşturulur.
+- Özel klasör çözümleme `SHGetKnownFolderPath` ile yapılır.
+- Süreç denetimi `EnumProcesses` ile yapılır.
+- Kaldırma akışı süreç kimliği takibiyle tamamlanır.
+- `ClearFast.spec` içinde `upx=False` açıkça belirtilmiştir.
 
-| Tetikleyici | Neden şüpheli görünür | Durum |
-|---|---|---|
-| `--onefile` paketleme | Program her açılışta kendini `%TEMP%\_MEIxxxxx` altına açıp oradan çalışır. Paketleyici zararlıların birebir davranışıdır. | **Kaldırıldı** — 0.3.1'den itibaren tek klasör (onedir) dağıtımı |
-| Gömülü EXE taşıma | Kurulum programı, uygulama EXE'sini kendi içinde taşıyıp diske yazıyordu. "Dropper" teriminin tam tanımı budur. | **Kaldırıldı** — kurulum artık gömülü ikili taşımaz, bulunduğu klasörü kopyalar |
-| Kendini silme komutu | Kaldırma, `ping 127.0.0.1 -n 3 >nul & rmdir /s /q` bırakıyordu — zararlıların kendini silme tekniğinin ders kitabı örneği, imza kuralı vardır. | **Kaldırıldı (0.3.2)** — silinebilen her şey anında siliniyor, kalanı için süreç kimliği izleniyor |
-| Kabuk üzerinden kısayol | `WScript.Shell` + `CreateShortcut` kalıcılık tekniği olarak bilinir. | **Kaldırıldı (0.3.2)** — doğrudan `IShellLinkW` kullanılıyor |
-| Gizli PowerShell çağrıları | Kurulum, klasör yolu ve süreç araması için gizli pencereyle kabuk açıyordu. | **Kaldırıldı (0.3.2)** — `SHGetKnownFolderPath` ve `EnumProcesses` |
-| UPX sıkıştırma | Paketleme sezgiselini doğrudan tetikler. | Hiç kullanılmadı; `ClearFast.spec` içinde açıkça `upx=False` |
-| Kod imzası yok | İmzasız dosyaların itibar puanı sıfırdır, sezgisel skorları ağırlaşır. | Sürüyor — aşağıya bakın |
-| Davranış | Dosya siler, süreç listesi okur, donanım bilgisi için CIM sorgular, kayıt defterine yazar. Hepsi programın işidir ama sezgisel tarayıcıya şüpheli görünür. | Azaltıldı — kurulum artık kabuk çalıştırmıyor; kalan CIM sorguları programın işlevi |
+Bu değişikliklerin amacı kurulum davranışını daha sade, izlenebilir ve standart Windows API'leriyle uyumlu hale getirmektir.
 
-### 0.3.1'de ne değişti?
+### Dosyayı doğrulama
 
-```
-  ESKI (0.3.0)                          YENI (0.3.1)
-  ─────────────────────────────         ─────────────────────────────
-  ClearFast.exe                         ClearFast\
-    └─ icinde gizli Python runtime         ├─ ClearFast.exe   (2,6 MB)
-       calisirken %TEMP%'e acilir          └─ _internal\      (acikta duran
-                                              runtime, gizlenmez)
-  ClearFastSetup.exe
-    └─ icinde ClearFast.exe (payload)    Kurulum ayri bir ikili degil:
-       calisirken diske yazilir            ClearFast.exe --setup
-                                           klasoru oldugu gibi kopyalar
-```
-
-Artık ortada ne kendini açan bir arşiv ne de içinden EXE çıkan bir program
-var. Bu iki kalıp, uyarıların ana kaynağıydı.
-
-### Yine de uyarı alırsanız
-
-**1. Dosyayı doğrulayın.** Sürüm sayfasındaki `SHA256SUMS.txt` dosyasındaki
-değerle karşılaştırın:
+Sürüm sayfasındaki `SHA256SUMS.txt` ile indirilen paketin özetini karşılaştırabilirsiniz:
 
 ```powershell
 Get-FileHash .\ClearFast-0.3.2-Windows.zip -Algorithm SHA256
 ```
 
-**2. Kendiniz derleyin.** Bize güvenmenize gerek yok:
+### Kaynaktan derleme
 
 ```bat
 git clone https://github.com/bendiyardev/ClearFast
 cd ClearFast
 Build.bat
-```
-
-Ardından bütünlük testini çalıştırabilirsiniz — 66 denetim, silme
-davranışının güvenlik değişmezleri dahil:
-
-```bat
 py -3 tools\selftest.py
 ```
 
-Çıkan `dist\ClearFast\ClearFast.exe` ile yayınlananın davranışı aynıdır.
-(Bayt bayt aynı olmaz: PyInstaller çıktısı yeniden üretilebilir değildir —
-zaman damgaları ve yol bilgileri değişir.)
+`tools/selftest.py` uygulamanın temel katmanlarını, temizlik hedeflerini, kurulum/kaldırma akışını ve arayüz bileşenlerini doğrulayan bütünlük denetimlerini çalıştırır.
 
-**3. Yanlış pozitif bildirin.** Bu, sorunu kalıcı çözen tek yoldur ve
-ücretsizdir. Genellikle 1–5 iş günü içinde imza güncellenir.
+### Kod imzalama
 
-| Tarayıcı | Bildirim kanalı |
-|---|---|
-| Microsoft Defender | https://www.microsoft.com/wdsi/filesubmission |
-| Kaspersky | https://opentip.kaspersky.com — sonra "Yanlış pozitif bildir" |
-| K7 Computing | https://support.k7computing.com — destek talebi + dosya |
-| Bkav | https://www.bkav.com/support — veya `support@bkav.com.vn` |
-| Zillya | https://zillya.com — destek formu veya `virus@zillya.com` |
+Yayınlanan `ClearFast.exe` şu anda ticari bir kod imzalama sertifikasıyla imzalanmamıştır. Bu nedenle Windows SmartScreen bazı sistemlerde "Bilinmeyen yayımcı" uyarısı gösterebilir.
 
-> Bildirim adresleri zaman zaman değişebilir; çalışmıyorsa üreticinin
-> sitesinde "false positive" / "submit a sample" araması yapın.
+Bu durum uygulamanın kaynak kodunu, SHA-256 özetini veya yerel derleme sonucunu doğrulamanıza engel değildir.
 
-### Kalıcı çözüm: kod imzalama
+### Veri ve ağ davranışı
 
-Yanlış pozitifleri gerçekten bitiren şey, dosyanın bir sertifika ile
-imzalanması ve zamanla itibar kazanmasıdır. Seçenekler:
+ClearFast:
 
-| Yöntem | Yıllık maliyet | Etki |
-|---|---|---|
-| **Azure Trusted Signing** | ~120 USD (aylık ~10 USD) | En ucuk meşru yol; kimlik doğrulaması ister |
-| **OV kod imzalama sertifikası** | ~200–400 USD | İtibar zamanla birikir |
-| **EV kod imzalama sertifikası** | ~300–600 USD | SmartScreen'de anında itibar |
-| Kendinden imzalı sertifika | ücretsiz | **Fayda sağlamaz** — tarayıcılar bilinmeyen CA'ya güvenmez |
+- yalnızca kullanıcı tarafından onaylanan yeniden oluşturulabilir önbellek ve geçici dosya hedeflerini temizler,
+- uygulama kök klasörlerini ve kullanıcı verisi olarak sınıflandırılan alanları korur,
+- telemetri toplamaz,
+- arka planda güncelleme sorgusu yapmaz,
+- kullanıcı etkileşimi olmadan harici bir servise veri göndermez.
 
-Kendinden imzalı sertifikanın işe yaramadığını özellikle belirtmek gerekir;
-internette sıkça önerilir ama virüs tarayıcılar açısından imzasız dosyadan
-farkı yoktur.
-
-### Programın gerçekte ne yaptığı
-
-Şüpheli görünen her davranışın kaynak koddaki karşılığı:
-
-| Davranış | Nerede | Ne için |
-|---|---|---|
-| Dosya silme | `cf_core.delete_contents()` | Yalnızca onayladığınız önbellek klasörlerinin içeriği |
-| Süreç listesi okuma | `cf_metrics.ProcessMonitor` | Performans sayfasındaki "en çok yoran uygulamalar" |
-| PowerShell çalıştırma | `cf_core.run_ps`, `cf_metrics.run_ps` | Yalnızca donanım bilgisi için CIM sorguları (`-NoProfile -NonInteractive`). Kurulum hiç kullanmaz. |
-| Kayıt defterine yazma | `ClearFastSetup.write_registry()` | Yalnızca `HKCU\...\Uninstall\ClearFast` — kaldırma kaydı |
-| Kısayol oluşturma | `cf_win.create_shortcut()` | Başlat menüsü ve masaüstü kısayolu — kabuk arayüzü doğrudan çağrılır |
-| Klasör kopyalama | `ClearFastSetup.install()` | Kurulum: programın klasörünü hedefe kopyalar |
-
-Ağ bağlantısı **yoktur**: program hiçbir yere veri göndermez, güncelleme
-sorgusu yapmaz, telemetri toplamaz. `webbrowser.open` yalnızca siz iletişim
-bağlantısına tıkladığınızda çalışır.
+Kaynak kod üzerinden ilgili davranışları doğrudan inceleyebilirsiniz.
 
 ---
 
 ## English
 
-### Short answer
+ClearFast is open source. The source for the published package is available in this repository and can be rebuilt locally with `Build.bat`.
 
-ClearFast contains **no malicious code**. The complete source is in this
-repository and you can reproduce the build yourself. Warnings from some
-antivirus engines are **false positives** typical of Python programs packaged
-with PyInstaller.
+### Packaging approach
 
-### Why does it happen?
+Versions 0.3.1 and 0.3.2 simplified the Windows distribution and installer flow:
 
-An engine judges a file by how it is packaged, what it does, and who signed
-it. ClearFast was at a disadvantage on all three; 0.3.1 and 0.3.2 fixed the
-first two. Only the missing signature remains.
+- A one-folder distribution is used instead of a single-file package.
+- Setup runs through `ClearFast.exe --setup` instead of a separate installer binary.
+- Shortcuts are created through the native Windows shell interface.
+- Known folders are resolved with `SHGetKnownFolderPath`.
+- Process checks use `EnumProcesses`.
+- Uninstall completion uses process-ID tracking.
+- `upx=False` is explicitly configured in `ClearFast.spec`.
 
-| Trigger | Why it looks suspicious | Status |
-|---|---|---|
-| `--onefile` packaging | The program unpacks itself into `%TEMP%\_MEIxxxxx` on every launch and runs from there — exactly what packed malware does. | **Removed** — one-folder (onedir) distribution since 0.3.1 |
-| Embedded EXE payload | The installer carried the application EXE inside itself and wrote it to disk. That is the definition of a dropper. | **Removed** — setup carries no embedded binary; it copies its own folder |
-| Self-delete command | Uninstall left behind `ping 127.0.0.1 -n 3 >nul & rmdir /s /q` — the textbook malware self-deletion technique, with dedicated signature rules. | **Removed (0.3.2)** — everything deletable goes immediately, the process ID is watched for the rest |
-| Shortcuts through a shell | `WScript.Shell` + `CreateShortcut` is a known persistence technique. | **Removed (0.3.2)** — `IShellLinkW` is used directly |
-| Hidden PowerShell calls | Setup opened a hidden shell for folder paths and process lookup. | **Removed (0.3.2)** — `SHGetKnownFolderPath` and `EnumProcesses` |
-| UPX compression | Directly triggers packer heuristics. | Never used; explicitly `upx=False` in `ClearFast.spec` |
-| No code signature | Unsigned files have zero reputation, which raises heuristic scores. | Still true — see below |
-| Behaviour | Deletes files, reads the process list, queries CIM for hardware, writes to the registry. All of it is the program's job, but heuristics see red flags. | Reduced — setup no longer spawns a shell; the remaining CIM queries are the tool's function |
+The goal is a simpler, easier-to-audit installer flow built around standard Windows APIs.
 
-### What changed in 0.3.1
+### Verify the package
 
-```
-  OLD (0.3.0)                           NEW (0.3.1)
-  ─────────────────────────────         ─────────────────────────────
-  ClearFast.exe                         ClearFast\
-    └─ hidden Python runtime inside        ├─ ClearFast.exe   (2.6 MB)
-       unpacks to %TEMP% at runtime        └─ _internal\      (runtime in
-                                              plain sight)
-  ClearFastSetup.exe
-    └─ ClearFast.exe inside (payload)    Setup is not a separate binary:
-       written to disk at runtime          ClearFast.exe --setup
-                                           copies the folder as it is
-```
-
-There is no self-extracting archive and no program that produces an EXE from
-inside itself. Those two patterns were the main source of the warnings.
-
-### If you still get a warning
-
-**1. Verify the file** against `SHA256SUMS.txt` on the release page:
+Compare the downloaded archive against `SHA256SUMS.txt` from the release page:
 
 ```powershell
 Get-FileHash .\ClearFast-0.3.2-Windows.zip -Algorithm SHA256
 ```
 
-**2. Build it yourself** — you do not have to trust us:
+### Build from source
 
 ```bat
 git clone https://github.com/bendiyardev/ClearFast
 cd ClearFast
 Build.bat
-```
-
-You can then run the integrity test — 66 checks, including the safety
-invariants of the deletion logic:
-
-```bat
 py -3 tools\selftest.py
 ```
 
-The resulting `dist\ClearFast\ClearFast.exe` behaves identically to the
-published one. (It will not be byte-identical: PyInstaller output is not
-reproducible — timestamps and paths differ.)
+`tools/selftest.py` runs integrity checks across the application layers, cleanup targets, install/uninstall flow and UI components.
 
-**3. Report the false positive.** This is the only permanent fix, it is free,
-and signatures are usually updated within 1–5 business days.
+### Code signing
 
-| Engine | Submission channel |
-|---|---|
-| Microsoft Defender | https://www.microsoft.com/wdsi/filesubmission |
-| Kaspersky | https://opentip.kaspersky.com — then "Report false positive" |
-| K7 Computing | https://support.k7computing.com — support ticket with the file |
-| Bkav | https://www.bkav.com/support — or `support@bkav.com.vn` |
-| Zillya | https://zillya.com — support form or `virus@zillya.com` |
+The published `ClearFast.exe` is not currently signed with a commercial code-signing certificate. Windows SmartScreen may therefore show an "Unknown publisher" warning on some systems.
 
-> Submission addresses change occasionally; if a link is dead, search the
-> vendor's site for "false positive" or "submit a sample".
+You can independently verify the source, SHA-256 checksum and local build output.
 
-### The permanent fix: code signing
+### Data and network behaviour
 
-What actually ends false positives is signing the binary with a certificate
-and accumulating reputation over time.
+ClearFast:
 
-| Option | Yearly cost | Effect |
-|---|---|---|
-| **Azure Trusted Signing** | ~120 USD (~10/month) | Cheapest legitimate route; requires identity verification |
-| **OV code-signing certificate** | ~200–400 USD | Reputation accrues over time |
-| **EV code-signing certificate** | ~300–600 USD | Immediate SmartScreen reputation |
-| Self-signed certificate | free | **No benefit** — engines do not trust an unknown CA |
+- cleans only user-approved, reproducible cache and temporary-file targets,
+- protects application roots and locations classified as user data,
+- collects no telemetry,
+- performs no background update checks,
+- sends no data to external services without explicit user interaction.
 
-Self-signed certificates are frequently suggested online but are worthless
-here: to an antivirus engine the file is still effectively unsigned.
-
-### What the program actually does
-
-Every behaviour that looks suspicious, mapped to the source:
-
-| Behaviour | Where | Purpose |
-|---|---|---|
-| Deleting files | `cf_core.delete_contents()` | Only the contents of cache folders you confirmed |
-| Reading the process list | `cf_metrics.ProcessMonitor` | The "top consumers" list on the Performance page |
-| Running PowerShell | `cf_core.run_ps`, `cf_metrics.run_ps` | CIM queries for hardware information only (`-NoProfile -NonInteractive`). Setup never uses it. |
-| Writing the registry | `ClearFastSetup.write_registry()` | Only `HKCU\...\Uninstall\ClearFast` — the uninstall entry |
-| Creating shortcuts | `cf_win.create_shortcut()` | Start Menu and Desktop shortcuts — the shell interface is called directly |
-| Copying a folder | `ClearFastSetup.install()` | Installation: copies the program folder to the target |
-
-There is **no network access**: the program sends nothing anywhere, checks for
-no updates and collects no telemetry. `webbrowser.open` runs only when you
-click a contact link yourself.
+The complete implementation can be reviewed directly in the source code.
